@@ -1009,8 +1009,6 @@ void ProtocolGame::writeToOutputBuffer(const NetworkMessage& msg)
 		UpdateLootContainers = 0xC0,
 		PlayerDataTournament = 0xC1,
 		CyclopediaHouseActionResult = 0xC3,
-		TournamentInformation = 0xC4,
-		TournamentLeaderboard = 0xC5,
 		CyclopediaStaticHouseData = 0xC6,
 		CyclopediaCurrentHouseData = 0xC7,
 		Outfit = 0xC8,
