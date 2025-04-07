@@ -654,12 +654,15 @@ void ProtocolGame::onRecvFirstMessage(NetworkMessage& msg)
 	// String client version
 	if (version >= 1240) {
 		if (msg.getLength() - msg.getBufferPosition() > 132) {
-			msg.getString();
+			auto clientVersionString = msg.getString();
 		}
 	}
+	if (version >= 1334) {
+ 		auto assetHashIdentifier = msg.getString(); // Assets hash identifier
+ 		}
 
-	msg.skipBytes(3); // U16 dat revision, U8 preview state
-
+	auto gamePreviewState = msg.getByte(); // U8 game preview state
+	
 	// Disconnect if RSA decrypt fails
 	if (!Protocol::RSA_decrypt(msg)) {
 #ifdef DEBUG_DISCONNECT
@@ -698,8 +701,8 @@ void ProtocolGame::onRecvFirstMessage(NetworkMessage& msg)
 		return;
 	}
 	
-	msg.skipBytes(1); // Gamemaster flag
-
+	auto isGameMaster = static_cast<bool>(msg.getByte()); // gamemaster flag
+	
 	std::string sessionKey = msg.getString();
 	auto sessionArgs = explodeString(sessionKey, "\n", 4); // acc name or email, password, token, timestamp divided by 30
 	if (sessionArgs.size() < 2) {
@@ -1645,6 +1648,7 @@ void ProtocolGame::parseSetOutfit(NetworkMessage& msg)
 			newOutfit.lookMountBody = currentOutfit.lookMountBody;
 			newOutfit.lookMountLegs = currentOutfit.lookMountLegs;
 			newOutfit.lookMountFeet = currentOutfit.lookMountFeet;
+			bool isMounted = msg.getByte();
 		}
 
 		// apply the changes
@@ -1879,10 +1883,17 @@ void ProtocolGame::parseWrapItem(NetworkMessage& msg)
 
 void ProtocolGame::parseQuickLoot(NetworkMessage& msg)
 {
+	uint8_t variant = msg.getByte();
 	Position pos = msg.getPosition();
-	uint8_t stackpos = msg.getByte();
-	uint16_t spriteId = msg.get<uint16_t>();
-
+	uint8_t stackpos = 0;
+	uint16_t spriteId = 0;
+	if (variant == 2) {
+ 		// Loot player nearby (13.40)
+ 	} else {
+ 		spriteId = msg.get<uint16_t>();
+ 		stackpos = msg.getByte();
+ 		lootAllCorpses = variant == 1;
+ 	}
 	g_dispatcher.addTask(createTask((DISPATCHER_TASK_EXPIRATION, ([=, playerID = player->getID()]() { g_game.playerQuickLoot(playerID, pos, stackpos, spriteId); }))));
 }
 
@@ -2731,6 +2742,18 @@ void ProtocolGame::sendContainer(uint8_t cid, const Container* container, bool h
 	} else {
 		msg.addByte(0x00);
 	}
+		// New container menu options
+ 	if (container->isMovable()) { // Pickupable/Moveable (?)
+ 		msg.addByte(1);
+ 	} else {
+ 		msg.addByte(0);
+ 	}
+ 
+ 	if (container->getHoldingPlayer()) { // Player holding the item (?)
+ 		msg.addByte(1);
+ 	} else {
+ 		msg.addByte(0);
+ 	}
 	writeToOutputBuffer(msg);
 }
 
@@ -2859,9 +2882,9 @@ void ProtocolGame::sendSaleItemList(const std::list<ShopInfo>& shop)
 		}
 	}
 
-	uint8_t itemsToSend = std::min<size_t>(saleMap.size(), std::numeric_limits<uint8_t>::max());
-	msg.addByte(itemsToSend);
-
+	uint16_t itemsToSend = std::min<size_t>(saleMap.size(), std::numeric_limits<uint8_t>::max());
+	msg.add<uint16_t>(itemsToSend);
+	
 	uint8_t i = 0;
 	for (std::map<uint16_t, uint32_t>::const_iterator it = saleMap.begin(); i < itemsToSend; ++it, ++i) {
 		msg.addItemId(it->first);
