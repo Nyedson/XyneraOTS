@@ -29,7 +29,7 @@ class Spells final : public BaseEvents
 		Spells& operator=(const Spells&) = delete;
 
 		Spell* getSpellByName(const std::string& name);
-		RuneSpell* getRuneSpell(uint32_t id);
+		RuneSpell* getRuneSpell(uint16_t id);
 		RuneSpell* getRuneSpellByName(const std::string& name);
 
 		InstantSpell* getInstantSpell(const std::string& words);
